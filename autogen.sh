@@ -50,7 +50,7 @@ exit 1
 sed \
 	-e 's,!__STRICT_ANSI__,!defined(__STRICT_ANSI__),g' \
 	-e 's,if ENABLE_NLS,ifdef ENABLE_NLS,g' \
-	-i include/gettext.h
+	-i "" include/gettext.h
 
 echo ""
 echo "Type \`./configure' to configure the package for your system"
