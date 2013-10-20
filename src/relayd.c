@@ -257,8 +257,8 @@ configure_tunnel (int fd, const struct in6_addr *addr, unsigned mtu)
 	memcpy (&s.addr, addr, sizeof (s.addr));
 	s.mtu = (uint16_t)mtu;
 
-	if ((send (fd, &s, sizeof (s), MSG_NOSIGNAL) != sizeof (s))
-	 || (recv (fd, &res, sizeof (res), MSG_WAITALL) != sizeof (res)))
+	if (!miredo_send (fd, &s, sizeof (s))
+	 || !miredo_recv (fd, &res, sizeof (res)))
 		return -1;
 
 	return res;
@@ -599,6 +599,7 @@ relay_run (miredo_conf *conf, const char *server_name)
 
 static void miredo_setup_fd (int fd)
 {
+	miredo_nosigpipe (fd);
 	(void) fcntl (fd, F_SETFD, FD_CLOEXEC);
 }
 

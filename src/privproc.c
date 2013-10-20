@@ -45,9 +45,6 @@
 #ifdef HAVE_SYS_CAPABILITY_H
 # include <sys/capability.h>
 #endif
-#ifndef MSG_NOSIGNAL
-# define MSG_NOSIGNAL 0 /* Uho */
-#endif
 #ifndef LOG_PERROR
 # define LOG_PERROR 0
 #endif
@@ -146,7 +143,7 @@ int main (int argc, char *argv[])
 		int res = -1;
 
 		/* Waits until new (changed) settings arrive */
-		if (recv (0, &cfg, sizeof (cfg), MSG_WAITALL) != sizeof (cfg))
+		if (!miredo_recv (0, &cfg, sizeof (cfg)))
 			break;
 
 		/* Sanity checks */
@@ -188,7 +185,7 @@ int main (int argc, char *argv[])
 
 		/* Notify main process of completion */
 	error:
-		if (send (1, &res, sizeof (res), MSG_NOSIGNAL) != sizeof (res))
+		if (!miredo_send (0, &res, sizeof (res)))
 			break;
 
 		/* Prepend "OLD_" to variables names for next script invocation */

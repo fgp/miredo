@@ -25,6 +25,8 @@
 #ifndef MIREDO_MIREDO_H
 # define MIREDO_MIREDO_H
 
+#include <stdbool.h>
+
 # ifdef __GNUC__
 #  define LIBTEREDO_NORETURN __attribute__ ((noreturn))
 # else
@@ -42,6 +44,9 @@ int miredo_main (int argc, char *argv[]);
 int miredo_version (void);
 int miredo (const char *conffile, const char *server_name, int pidfd);
 int drop_privileges (void);
+bool miredo_nosigpipe (int fd);
+bool miredo_send (int fd, const void *buffer, int length);
+bool miredo_recv (int fd, void *buffer, int length);
 
 # ifdef __cplusplus
 }

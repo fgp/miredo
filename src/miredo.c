@@ -90,6 +90,60 @@ drop_privileges (void)
 }
 
 
+extern bool
+miredo_nosigpipe (int fd)
+{
+#if HAVE_DECL_SO_NOSIGPIPE
+	int v = 1;
+	return (setsockopt (fd, SOL_SOCKET, SO_NOSIGPIPE, &v, sizeof (v)) == 0);
+#endif
+}
+
+
+extern bool
+miredo_send (int fd, const void *_buffer, int length)
+{
+        const char *buffer = (const char *) _buffer;
+        int l;
+	while (length > 0) {
+#if HAVE_DECL_MSG_NOSIGNAL
+		l = send (fd, buffer, length, MSG_NOSIGNAL);
+#else
+		l = send (fd, buffer, length, 0);
+#endif
+		if ((l < 0) && (errno == EINTR) )
+	  		continue;
+		else if (l <= 0)
+			return false;
+		buffer += l;
+		length -= l;
+	}
+	return true;
+}
+
+
+extern bool
+miredo_recv (int fd, void *_buffer, int length)
+{
+        char *buffer = (char *) _buffer;
+        int l;
+	while (length > 0) {
+#if HAVE_DECL_MSG_NOSIGNAL
+		l = recv (fd, buffer, length, MSG_NOSIGNAL);
+#else
+		l = recv (fd, buffer, length, 0);
+#endif
+		if ((l < 0) && (errno == EINTR) )
+	  		continue;
+		else if (l <= 0)
+			return false;
+                buffer += l;
+		length -= l;
+	}
+	return true;
+}
+
+
 /*
  * Configuration and respawning stuff
  */

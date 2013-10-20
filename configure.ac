@@ -145,6 +145,11 @@ AC_CHECK_FUNCS([devname_r kldload pthread_condattr_setclock timer_create])
 AC_REPLACE_FUNCS([clearenv closefrom strlcpy clock_gettime clock_nanosleep fdatasync])
 LIBS="$LIBS_save"
 
+# Check for ways to avoid SIGPIPE
+AS_MESSAGE([checking SIGPIPE avoidance])
+AC_CHECK_DECLS([MSG_NOSIGNAL], [], [], [[ #include <sys/socket.h> ]])
+AC_CHECK_DECLS([SO_NOSIGPIPE], [], [], [[ #include <sys/socket.h> ]])
+
 # Checks for optionnal features
 AS_MESSAGE([checking optional features...])
 
