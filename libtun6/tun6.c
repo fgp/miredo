@@ -81,7 +81,6 @@ typedef struct
       defined (__OpenBSD__) || defined (__OpenBSD_kernel__) || \
       defined (__DragonFly__) || \
       defined (__APPLE__) /* Darwin */
-#include <ifaddrs.h>
 /*
  * BSD tunneling driver
  * NOTE: the driver is NOT tested on Darwin (Mac OS X).
@@ -108,6 +107,7 @@ const char os_driver[] = "BSD";
 #  include <net/if_var.h>
 # endif
 
+# include <ifaddrs.h>
 # include <net/if_dl.h> // struct sockaddr_dl
 # include <net/route.h> // AF_ROUTE things
 # include <netinet6/in6_var.h> // struct in6_aliasreq
