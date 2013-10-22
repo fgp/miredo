@@ -79,8 +79,7 @@ typedef struct
 #elif defined (__FreeBSD__) || defined (__FreeBSD_kernel__) || \
       defined (__NetBSD__)  || defined (__NetBSD_kernel__)  || \
       defined (__OpenBSD__) || defined (__OpenBSD_kernel__) || \
-      defined (__DragonFly__) || \
-      defined (__APPLE__) /* Darwin */
+      defined (__DragonFly__)
 /*
  * BSD tunneling driver
  * NOTE: the driver is NOT tested on Darwin (Mac OS X).
@@ -106,6 +105,31 @@ const char os_driver[] = "BSD";
 # ifdef HAVE_NET_IF_VAR_H
 #  include <net/if_var.h>
 # endif
+
+# include <ifaddrs.h>
+# include <net/if_dl.h> // struct sockaddr_dl
+# include <net/route.h> // AF_ROUTE things
+# include <netinet6/in6_var.h> // struct in6_aliasreq
+# include <netinet6/nd6.h> // ND6_INFINITE_LIFETIME
+
+# include <pthread.h>
+
+typedef uint32_t tun_head_t;
+
+# define TUN_HEAD_IPV6_INITIALIZER htonl (AF_INET6)
+# define tun_head_is_ipv6( h ) (h == htonl (AF_INET6))
+
+#elif defined (__APPLE__) /* Darwin */
+/*
+ * Darwin tunneling driver
+ * NOTE: 
+ */
+const char os_driver[] = "Darwin";
+# define USE_DARWIN 1
+
+# include <sys/kern_control.h>
+# include <sys/sys_domain.h>
+# include <net/if_utun.h>
 
 # include <ifaddrs.h>
 # include <net/if_dl.h> // struct sockaddr_dl
@@ -327,6 +351,51 @@ tun6 *tun6_create (const char *req_name)
 			}
 		}
 	}
+#elif defined(USE_DARWIN)
+	int fd = socket (PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL);
+	if (fd < 0)
+		goto error;
+		
+	struct ctl_info ci;
+	memset (&ci, 0, sizeof (ci));
+	if (strlcpy (ci.ctl_name, UTUN_CONTROL_NAME, sizeof(ci.ctl_name)) >=
+		sizeof (ci.ctl_name)) {
+		close (fd);
+		errno = ENOSPC;
+		goto error;
+	}
+	if (ioctl (fd, CTLIOCGINFO, &ci) < 0) {
+		close (fd);
+		goto error;
+	}
+
+	struct sockaddr_ctl sc;
+	memset (&sc, 0, sizeof (sc));
+	sc.sc_len = sizeof(sc);
+	sc.sc_family = AF_SYSTEM;
+	sc.ss_sysaddr = AF_SYS_CONTROL;
+	sc.sc_id = ci.ctl_id;
+	sc.sc_unit = 0; /* auto-allocate */
+	if (connect (fd, (struct sockaddr *)&sc, sizeof(sc)) == -1) {
+		close (fd);
+		goto error;
+	}
+
+	char ifn[IFNAMSIZ];
+	socklen_t ifn_len = sizeof(ifn); 
+	if (getsockopt (fd, SYSPROTO_CONTROL, UTUN_OPT_IFNAME, ifn, &ifn_len) < 0) {
+		close (fd);
+		goto error;
+	}
+	
+	int id = if_nametoindex (ifn);
+	if (id == 0) {
+		close (fd);
+		goto error;
+	}
+	
+	(void)req_name;
+
 #else
 # error No tunneling driver implemented on your platform!
 #endif /* HAVE_os */
@@ -466,7 +535,7 @@ tun6_setState (tun6 *t, bool up)
 }
 
 
-#if defined (USE_BSD)
+#if defined (USE_BSD) || defined(USE_DARWIN)
 /**
  * Converts a prefix length to a netmask (used for the BSD routing)
  */
@@ -500,7 +569,7 @@ plen_to_sin6 (unsigned plen, struct sockaddr_in6 *sin6)
 # endif
 	plen_to_mask (plen, &sin6->sin6_addr);
 }
-#endif /* ifdef SOCAIFADDR_IN6 */
+#endif /* defined (USE_BSD) || defined(USE_DARWIN) */
 
 
 static int
@@ -533,7 +602,7 @@ _iface_addr (int reqfd, int id, bool add,
 
 	cmd = add ? SIOCSIFADDR : SIOCDIFADDR;
 	req = &r;
-#elif defined (USE_BSD)
+#elif defined (USE_BSD) || defined(USE_DARWIN)
 	/*
 	 * BSD ioctl interface
 	 */
@@ -616,7 +685,7 @@ _iface_route (int reqfd, int id, bool add, const struct in6_addr *addr,
 
 	if (ioctl (reqfd, add ? SIOCADDRT : SIOCDELRT, &req6) == 0)
 		retval = 0;
-#elif defined (USE_BSD)
+#elif defined (USE_BSD) || defined(USE_DARWIN)
 	/*
 	 * BSD routing socket interface
 	 * FIXME: metric unimplemented
